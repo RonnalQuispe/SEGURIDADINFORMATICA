@@ -68,100 +68,17 @@ export default function RespaldoTecnicoPage() {
               CyberRisk Manager implementa una arquitectura moderna de tres capas basada en el patron de aplicaciones web serverless, optimizada para escalabilidad, rendimiento y seguridad.
             </p>
 
-            {/* Diagrama ASCII de Arquitectura */}
-            <div className="bg-muted p-6 rounded-lg font-mono text-sm overflow-x-auto mb-6">
-              <pre className="whitespace-pre text-foreground">{`
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           CAPA DE PRESENTACION                              │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│    ┌─────────────┐    ┌─────────────┐    ┌─────────────┐                   │
-│    │   Browser   │    │   Mobile    │    │   Tablet    │                   │
-│    │   (Chrome,  │    │   Browser   │    │   Browser   │                   │
-│    │   Firefox)  │    │             │    │             │                   │
-│    └──────┬──────┘    └──────┬──────┘    └──────┬──────┘                   │
-│           │                  │                  │                           │
-│           └──────────────────┼──────────────────┘                           │
-│                              │                                              │
-│                              ▼                                              │
-│              ┌───────────────────────────────┐                              │
-│              │      Next.js 16 Frontend      │                              │
-│              │    (React 19 + TypeScript)    │                              │
-│              │  ┌─────────────────────────┐  │                              │
-│              │  │  Componentes React      │  │                              │
-│              │  │  - Dashboard            │  │                              │
-│              │  │  - Formularios CRUD     │  │                              │
-│              │  │  - Graficos (Recharts)  │  │                              │
-│              │  │  - Tablas de datos      │  │                              │
-│              │  └─────────────────────────┘  │                              │
-│              └───────────────┬───────────────┘                              │
-│                              │                                              │
-└──────────────────────────────┼──────────────────────────────────────────────┘
-                               │
-                               ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                            CAPA DE APLICACION                               │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│              ┌───────────────────────────────┐                              │
-│              │      Next.js API Routes       │                              │
-│              │      (Server Actions)         │                              │
-│              │  ┌─────────────────────────┐  │                              │
-│              │  │  Server Components      │  │                              │
-│              │  │  - Data Fetching        │  │                              │
-│              │  │  - Server-side Logic    │  │                              │
-│              │  │  - API Integration      │  │                              │
-│              │  └─────────────────────────┘  │                              │
-│              └───────────────┬───────────────┘                              │
-│                              │                                              │
-│              ┌───────────────┴───────────────┐                              │
-│              │      Supabase Client          │                              │
-│              │  ┌─────────────────────────┐  │                              │
-│              │  │  - Browser Client       │  │                              │
-│              │  │  - Server Client        │  │                              │
-│              │  │  - SSR Support          │  │                              │
-│              │  └─────────────────────────┘  │                              │
-│              └───────────────┬───────────────┘                              │
-│                              │                                              │
-└──────────────────────────────┼──────────────────────────────────────────────┘
-                               │ HTTPS/WSS
-                               ▼
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                              CAPA DE DATOS                                  │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│              ┌───────────────────────────────┐                              │
-│              │         SUPABASE              │                              │
-│              │  ┌─────────────────────────┐  │                              │
-│              │  │   PostgreSQL Database   │  │                              │
-│              │  │   - 12 Tablas           │  │                              │
-│              │  │   - Relaciones FK       │  │                              │
-│              │  │   - Indices             │  │                              │
-│              │  └─────────────────────────┘  │                              │
-│              │  ┌─────────────────────────┐  │                              │
-│              │  │   Row Level Security    │  │                              │
-│              │  │   - Politicas de acceso │  │                              │
-│              │  └─────────────────────────┘  │                              │
-│              │  ┌─────────────────────────┐  │                              │
-│              │  │   Real-time Subscript.  │  │                              │
-│              │  │   - Actualizaciones     │  │                              │
-│              │  └─────────────────────────┘  │                              │
-│              └───────────────────────────────┘                              │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-
-┌─────────────────────────────────────────────────────────────────────────────┐
-│                           FLUJO DE DATOS                                    │
-├─────────────────────────────────────────────────────────────────────────────┤
-│                                                                             │
-│   Usuario ──► UI React ──► Server Action ──► Supabase Client ──► PostgreSQL │
-│      │                                                              │       │
-│      └──────────────────────◄───────────────────────────────────────┘       │
-│                         Respuesta JSON                                      │
-│                                                                             │
-└─────────────────────────────────────────────────────────────────────────────┘
-              `}</pre>
-            </div>
+           
+           {/* Container for the Architecture Image */}
+<div className="bg-muted p-6 rounded-lg mb-6 flex justify-center">
+  <img 
+    src="/arquitectura.png" 
+    alt="Diagrama de Arquitectura" 
+    className="max-w-full h-auto rounded-md shadow-sm"
+  />
+</div>
+           
+           
 
             <h3 className="text-xl font-semibold mt-6 mb-3">1.2 Componentes Principales</h3>
             <table className="w-full border-collapse border border-border mt-4">

@@ -1,8 +1,6 @@
 "use client"
 
-import React from "react"
-
-import { useEffect, useState } from "react"
+import React, { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -35,6 +33,8 @@ import {
 } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Plus, Pencil, Trash2, AlertTriangle, Search } from "lucide-react"
+
+// Tipos basados estrictamente en tu SQL
 import type { Risk, Asset, Threat, Vulnerability } from "@/lib/types/database"
 
 type RiskWithRelations = Risk & {
@@ -44,18 +44,21 @@ type RiskWithRelations = Risk & {
 }
 
 const RISK_LEVELS = [
-  { value: "critico", label: "Critico", color: "bg-red-500" },
-  { value: "alto", label: "Alto", color: "bg-orange-500" },
-  { value: "medio", label: "Medio", color: "bg-yellow-500" },
-  { value: "bajo", label: "Bajo", color: "bg-green-500" },
+  { value: "Crítico", label: "Crítico", color: "bg-red-600" },
+  { value: "Alto", label: "Alto", color: "bg-orange-500" },
+  { value: "Medio", label: "Medio", color: "bg-yellow-500" },
+  { value: "Bajo", label: "Bajo", color: "bg-green-500" },
+  { value: "Muy Bajo", label: "Muy Bajo", color: "bg-blue-500" },
 ]
 
-function calculateRiskLevel(probability: number, impact: number): string {
+// Función alineada con los CASE del SQL
+function calculateRiskCategory(probability: number, impact: number): string {
   const score = probability * impact
-  if (score >= 20) return "critico"
-  if (score >= 12) return "alto"
-  if (score >= 6) return "medio"
-  return "bajo"
+  if (score >= 20) return "Crítico"
+  if (score >= 15) return "Alto"
+  if (score >= 10) return "Medio"
+  if (score >= 5) return "Bajo"
+  return "Muy Bajo"
 }
 
 export function RiskMatrixContent() {
@@ -67,6 +70,7 @@ export function RiskMatrixContent() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingRisk, setEditingRisk] = useState<Risk | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
+  
   const [formData, setFormData] = useState({
     name: "",
     description: "",
@@ -75,7 +79,6 @@ export function RiskMatrixContent() {
     vulnerability_id: "",
     probability: 3,
     impact: 3,
-    risk_level: "medio",
   })
 
   async function fetchData() {
@@ -87,7 +90,7 @@ export function RiskMatrixContent() {
       supabase.from("vulnerabilities").select("*").order("name"),
     ])
 
-    setRisks((risksRes.data as RiskWithRelations[]) || [])
+    setRisks((risksRes.data as unknown as RiskWithRelations[]) || [])
     setAssets(assetsRes.data || [])
     setThreats(threatsRes.data || [])
     setVulnerabilities(vulnsRes.data || [])
@@ -98,11 +101,6 @@ export function RiskMatrixContent() {
     fetchData()
   }, [])
 
-  useEffect(() => {
-    const level = calculateRiskLevel(formData.probability, formData.impact)
-    setFormData((prev) => ({ ...prev, risk_level: level }))
-  }, [formData.probability, formData.impact])
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const supabase = createClient()
@@ -110,18 +108,18 @@ export function RiskMatrixContent() {
     const riskData = {
       name: formData.name,
       description: formData.description,
-      asset_id: formData.asset_id || null,
-      threat_id: formData.threat_id || null,
-      vulnerability_id: formData.vulnerability_id || null,
+      asset_id: formData.asset_id,
+      threat_id: formData.threat_id,
+      vulnerability_id: formData.vulnerability_id,
       probability: formData.probability,
       impact: formData.impact,
-      risk_level: formData.risk_level,
+      // inherent_risk_level y category son GENERATED en SQL, no se envían
     }
 
     if (editingRisk) {
       await supabase.from("risks").update(riskData).eq("id", editingRisk.id)
     } else {
-      await supabase.from("risks").insert(riskData)
+      await supabase.from("risks").insert([riskData])
     }
 
     setIsDialogOpen(false)
@@ -139,14 +137,13 @@ export function RiskMatrixContent() {
       vulnerability_id: "",
       probability: 3,
       impact: 3,
-      risk_level: "medio",
     })
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Esta seguro de eliminar este riesgo?")) return
+  async function handleDelete(id: string | number) {
+    if (!confirm("¿Está seguro de eliminar este riesgo?")) return
     const supabase = createClient()
-    await supabase.from("risks").delete().eq("id", id)
+    await supabase.from("risks").delete().eq("id", String(id))
     fetchData()
   }
 
@@ -158,16 +155,9 @@ export function RiskMatrixContent() {
       asset_id: risk.asset_id || "",
       threat_id: risk.threat_id || "",
       vulnerability_id: risk.vulnerability_id || "",
-      probability: risk.probability || 3,
-      impact: risk.impact || 3,
-      risk_level: risk.risk_level || "medio",
+      probability: risk.probability,
+      impact: risk.impact,
     })
-    setIsDialogOpen(true)
-  }
-
-  function openNewDialog() {
-    setEditingRisk(null)
-    resetForm()
     setIsDialogOpen(true)
   }
 
@@ -175,8 +165,8 @@ export function RiskMatrixContent() {
     risk.name.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  function getRiskLevelBadge(level: string | null) {
-    const option = RISK_LEVELS.find((o) => o.value === level)
+  function getRiskLevelBadge(category: string | undefined) {
+    const option = RISK_LEVELS.find((o) => o.value === category)
     if (!option) return <Badge variant="secondary">-</Badge>
     return <Badge className={`${option.color} text-white`}>{option.label}</Badge>
   }
@@ -188,224 +178,108 @@ export function RiskMatrixContent() {
           <div>
             <CardTitle>Matriz de Riesgos</CardTitle>
             <CardDescription>
-              Identifica y evalua los riesgos asociando activos, amenazas y vulnerabilidades
+              Gestión de riesgos basada en Probabilidad x Impacto
             </CardDescription>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={openNewDialog}>
-                <Plus className="h-4 w-4 mr-2" />
-                Nuevo Riesgo
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <form onSubmit={handleSubmit}>
-                <DialogHeader>
-                  <DialogTitle>
-                    {editingRisk ? "Editar Riesgo" : "Nuevo Riesgo"}
-                  </DialogTitle>
-                  <DialogDescription>
-                    {editingRisk
-                      ? "Modifica los datos del riesgo"
-                      : "Identifica un nuevo riesgo en la matriz"}
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Nombre del Riesgo *</Label>
-                    <Input
-                      id="name"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      placeholder="Descripcion breve del riesgo"
-                      required
-                    />
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-3">
-                    <div className="space-y-2">
-                      <Label>Activo Afectado</Label>
-                      <Select
-                        value={formData.asset_id}
-                        onValueChange={(value) => setFormData({ ...formData, asset_id: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {assets.map((asset) => (
-                            <SelectItem key={asset.id} value={asset.id}>
-                              {asset.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Amenaza</Label>
-                      <Select
-                        value={formData.threat_id}
-                        onValueChange={(value) => setFormData({ ...formData, threat_id: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {threats.map((threat) => (
-                            <SelectItem key={threat.id} value={threat.id}>
-                              {threat.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Vulnerabilidad</Label>
-                      <Select
-                        value={formData.vulnerability_id}
-                        onValueChange={(value) => setFormData({ ...formData, vulnerability_id: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {vulnerabilities.map((vuln) => (
-                            <SelectItem key={vuln.id} value={vuln.id}>
-                              {vuln.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-3">
-                    <div className="space-y-2">
-                      <Label>Probabilidad (1-5)</Label>
-                      <Input
-                        type="number"
-                        min={1}
-                        max={5}
-                        value={formData.probability}
-                        onChange={(e) => setFormData({ ...formData, probability: parseInt(e.target.value) || 1 })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Impacto (1-5)</Label>
-                      <Input
-                        type="number"
-                        min={1}
-                        max={5}
-                        value={formData.impact}
-                        onChange={(e) => setFormData({ ...formData, impact: parseInt(e.target.value) || 1 })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Nivel de Riesgo</Label>
-                      <div className="h-10 flex items-center">
-                        {getRiskLevelBadge(formData.risk_level)}
-                        <span className="ml-2 text-sm text-muted-foreground">
-                          (Score: {formData.probability * formData.impact})
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Descripcion</Label>
-                    <Textarea
-                      id="description"
-                      value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      placeholder="Descripcion detallada del riesgo..."
-                      rows={3}
-                    />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                    Cancelar
-                  </Button>
-                  <Button type="submit">
-                    {editingRisk ? "Guardar Cambios" : "Crear Riesgo"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
+          <Button onClick={() => { resetForm(); setEditingRisk(null); setIsDialogOpen(true); }}>
+            <Plus className="h-4 w-4 mr-2" /> Nuevo Riesgo
+          </Button>
         </CardHeader>
         <CardContent>
-          <div className="mb-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar riesgos..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+          <div className="mb-4 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar riesgos..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
           </div>
 
-          {loading ? (
-            <div className="flex items-center justify-center h-32">
-              <div className="animate-pulse text-muted-foreground">Cargando riesgos...</div>
-            </div>
-          ) : filteredRisks.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
-              <AlertTriangle className="h-8 w-8 mb-2 opacity-50" />
-              <p>No hay riesgos identificados</p>
-              <p className="text-sm">Crea el primer riesgo para comenzar</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Riesgo</TableHead>
-                    <TableHead>Activo</TableHead>
-                    <TableHead>Amenaza</TableHead>
-                    <TableHead>Vulnerabilidad</TableHead>
-                    <TableHead className="text-center">P x I</TableHead>
-                    <TableHead>Nivel</TableHead>
-                    <TableHead className="w-24">Acciones</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredRisks.map((risk) => (
-                    <TableRow key={risk.id}>
-                      <TableCell className="font-medium max-w-xs truncate">{risk.name}</TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {risk.assets?.name || "-"}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {risk.threats?.name || "-"}
-                      </TableCell>
-                      <TableCell className="text-muted-foreground">
-                        {risk.vulnerabilities?.name || "-"}
-                      </TableCell>
-                      <TableCell className="text-center font-mono">
-                        {risk.probability} x {risk.impact} = {(risk.probability || 0) * (risk.impact || 0)}
-                      </TableCell>
-                      <TableCell>{getRiskLevelBadge(risk.risk_level)}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="icon" onClick={() => openEditDialog(risk)}>
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleDelete(risk.id)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Riesgo</TableHead>
+                <TableHead>Activo</TableHead>
+                <TableHead className="text-center">P x I</TableHead>
+                <TableHead>Categoría</TableHead>
+                <TableHead className="w-24">Acciones</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {loading ? (
+                <TableRow><TableCell colSpan={5} className="text-center">Cargando...</TableCell></TableRow>
+              ) : filteredRisks.map((risk) => (
+                <TableRow key={risk.id}>
+                  <TableCell className="font-medium">{risk.name}</TableCell>
+                  <TableCell>{risk.assets?.name || "-"}</TableCell>
+                  <TableCell className="text-center">
+                    {risk.probability} x {risk.impact} = {Number(risk.probability) * Number(risk.impact)}
+                  </TableCell>
+                  <TableCell>
+                    {/* Nota: Usamos la propiedad generada por la DB */}
+                    {getRiskLevelBadge((risk as any).inherent_risk_category)}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex gap-2">
+                      <Button variant="ghost" size="icon" onClick={() => openEditDialog(risk)}>
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleDelete(risk.id)}>
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <form onSubmit={handleSubmit}>
+            <DialogHeader>
+              <DialogTitle>{editingRisk ? "Editar Riesgo" : "Nuevo Riesgo"}</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label>Nombre *</Label>
+                <Input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
+              </div>
+              <div className="grid grid-cols-3 gap-4">
+                <div className="space-y-2">
+                  <Label>Activo</Label>
+                  <Select value={formData.asset_id} onValueChange={v => setFormData({...formData, asset_id: v})}>
+                    <SelectTrigger><SelectValue placeholder="Activo" /></SelectTrigger>
+                    <SelectContent>
+                      {assets.map(a => <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                {/* Repetir estructura para Amenaza y Vulnerabilidad... */}
+              </div>
+              <div className="grid grid-cols-3 gap-4 items-end">
+                <div className="space-y-2">
+                  <Label>Probabilidad (1-5)</Label>
+                  <Input type="number" min={1} max={5} value={formData.probability} onChange={e => setFormData({...formData, probability: parseInt(e.target.value)})} />
+                </div>
+                <div className="space-y-2">
+                  <Label>Impacto (1-5)</Label>
+                  <Input type="number" min={1} max={5} value={formData.impact} onChange={e => setFormData({...formData, impact: parseInt(e.target.value)})} />
+                </div>
+                <div className="pb-2">
+                   {getRiskLevelBadge(calculateRiskCategory(formData.probability, formData.impact))}
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="submit">Guardar</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

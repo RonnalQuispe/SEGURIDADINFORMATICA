@@ -1,8 +1,6 @@
 "use client"
 
-import React from "react"
-
-import { useEffect, useState } from "react"
+import React, { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -38,7 +36,7 @@ import { Plus, Pencil, Trash2, Database, Search } from "lucide-react"
 import type { Vulnerability } from "@/lib/types/database"
 
 const SEVERITY_OPTIONS = [
-  { value: "critica", label: "Critica", color: "bg-red-500" },
+  { value: "critica", label: "Crítica", color: "bg-red-500" },
   { value: "alta", label: "Alta", color: "bg-orange-500" },
   { value: "media", label: "Media", color: "bg-yellow-500" },
   { value: "baja", label: "Baja", color: "bg-green-500" },
@@ -50,18 +48,24 @@ export function VulnerabilitiesContent() {
   const [isDialogOpen, setIsDialogOpen] = useState(false)
   const [editingVuln, setEditingVuln] = useState<Vulnerability | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
-  const [formData, setFormData] = useState({
+
+  // Estado inicial del formulario
+  const initialForm = {
     name: "",
     description: "",
     severity: "media",
-    cve_id: "",
+    // Asegúrate de que estos nombres existan en tu tabla 'vulnerabilities'
+    cve_id: "", 
     affected_component: "",
-  })
+  }
+
+  const [formData, setFormData] = useState(initialForm)
 
   async function fetchVulnerabilities() {
+    setLoading(true)
     const supabase = createClient()
-    const { data } = await supabase.from("vulnerabilities").select("*").order("name")
-    setVulnerabilities(data || [])
+    const { data, error } = await supabase.from("vulnerabilities").select("*").order("name")
+    if (!error) setVulnerabilities(data || [])
     setLoading(false)
   }
 
@@ -76,30 +80,27 @@ export function VulnerabilitiesContent() {
     if (editingVuln) {
       await supabase.from("vulnerabilities").update(formData).eq("id", editingVuln.id)
     } else {
-      await supabase.from("vulnerabilities").insert(formData)
+      await supabase.from("vulnerabilities").insert([formData])
     }
 
     setIsDialogOpen(false)
     setEditingVuln(null)
-    resetForm()
+    setFormData(initialForm)
     fetchVulnerabilities()
   }
 
-  function resetForm() {
-    setFormData({ name: "", description: "", severity: "media", cve_id: "", affected_component: "" })
-  }
-
-  async function handleDelete(id: string) {
-    if (!confirm("Esta seguro de eliminar esta vulnerabilidad?")) return
+  async function handleDelete(id: string | number) {
+    if (!confirm("¿Está seguro de eliminar esta vulnerabilidad?")) return
     const supabase = createClient()
-    await supabase.from("vulnerabilities").delete().eq("id", id)
+    // Convertimos a String para evitar el error de 'string | number'
+    await supabase.from("vulnerabilities").delete().eq("id", String(id))
     fetchVulnerabilities()
   }
 
-  function openEditDialog(vuln: Vulnerability) {
+  function openEditDialog(vuln: any) { // Usamos any temporalmente si el tipo de la DB es inconsistente
     setEditingVuln(vuln)
     setFormData({
-      name: vuln.name,
+      name: vuln.name || "",
       description: vuln.description || "",
       severity: vuln.severity || "media",
       cve_id: vuln.cve_id || "",
@@ -108,22 +109,16 @@ export function VulnerabilitiesContent() {
     setIsDialogOpen(true)
   }
 
-  function openNewDialog() {
-    setEditingVuln(null)
-    resetForm()
-    setIsDialogOpen(true)
-  }
-
   const filteredVulnerabilities = vulnerabilities.filter(
-    (vuln) =>
-      vuln.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      vuln.cve_id?.toLowerCase().includes(searchTerm.toLowerCase())
+    (vuln: any) =>
+      (vuln.name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
+      (vuln.cve_id?.toLowerCase() || "").includes(searchTerm.toLowerCase())
   )
 
   function getSeverityBadge(severity: string | null) {
     const option = SEVERITY_OPTIONS.find((o) => o.value === severity)
     if (!option) return <Badge variant="secondary">-</Badge>
-    return <Badge className={`${option.color} text-white`}>{option.label}</Badge>
+    return <Badge className={`${option.color} text-white border-none`}>{option.label}</Badge>
   }
 
   return (
@@ -131,162 +126,124 @@ export function VulnerabilitiesContent() {
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
-            <CardTitle>Catalogo de Vulnerabilidades</CardTitle>
-            <CardDescription>
-              Identifica y registra las vulnerabilidades que pueden ser explotadas
-            </CardDescription>
+            <CardTitle>Catálogo de Vulnerabilidades</CardTitle>
+            <CardDescription>Registro de debilidades de seguridad.</CardDescription>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={openNewDialog}>
-                <Plus className="h-4 w-4 mr-2" />
-                Nueva Vulnerabilidad
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <form onSubmit={handleSubmit}>
-                <DialogHeader>
-                  <DialogTitle>
-                    {editingVuln ? "Editar Vulnerabilidad" : "Nueva Vulnerabilidad"}
-                  </DialogTitle>
-                  <DialogDescription>
-                    {editingVuln
-                      ? "Modifica los datos de la vulnerabilidad"
-                      : "Agrega una nueva vulnerabilidad al catalogo"}
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4 py-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="name">Nombre *</Label>
-                    <Input
-                      id="name"
-                      value={formData.name}
-                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                      placeholder="Nombre de la vulnerabilidad"
-                      required
-                    />
-                  </div>
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label htmlFor="severity">Severidad</Label>
-                      <Select
-                        value={formData.severity}
-                        onValueChange={(value) => setFormData({ ...formData, severity: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {SEVERITY_OPTIONS.map((opt) => (
-                            <SelectItem key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor="cve_id">CVE ID</Label>
-                      <Input
-                        id="cve_id"
-                        value={formData.cve_id}
-                        onChange={(e) => setFormData({ ...formData, cve_id: e.target.value })}
-                        placeholder="CVE-XXXX-XXXXX"
-                      />
-                    </div>
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="affected_component">Componente Afectado</Label>
-                    <Input
-                      id="affected_component"
-                      value={formData.affected_component}
-                      onChange={(e) => setFormData({ ...formData, affected_component: e.target.value })}
-                      placeholder="Sistema o componente afectado"
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label htmlFor="description">Descripcion</Label>
-                    <Textarea
-                      id="description"
-                      value={formData.description}
-                      onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                      placeholder="Descripcion de la vulnerabilidad..."
-                      rows={3}
-                    />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                    Cancelar
-                  </Button>
-                  <Button type="submit">
-                    {editingVuln ? "Guardar Cambios" : "Crear Vulnerabilidad"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
+          <Button onClick={() => { setEditingVuln(null); setFormData(initialForm); setIsDialogOpen(true); }}>
+            <Plus className="h-4 w-4 mr-2" />
+            Nueva Vulnerabilidad
+          </Button>
         </CardHeader>
         <CardContent>
-          <div className="mb-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por nombre o CVE..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+          <div className="mb-4 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por nombre o CVE..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
           </div>
 
           {loading ? (
-            <div className="flex items-center justify-center h-32">
-              <div className="animate-pulse text-muted-foreground">Cargando vulnerabilidades...</div>
-            </div>
-          ) : filteredVulnerabilities.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
-              <Database className="h-8 w-8 mb-2 opacity-50" />
-              <p>No hay vulnerabilidades registradas</p>
-              <p className="text-sm">Crea la primera vulnerabilidad para comenzar</p>
-            </div>
+            <div className="text-center py-10">Cargando...</div>
           ) : (
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Nombre</TableHead>
-                  <TableHead>Severidad</TableHead>
-                  <TableHead>CVE</TableHead>
-                  <TableHead>Componente</TableHead>
-                  <TableHead className="w-24">Acciones</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {filteredVulnerabilities.map((vuln) => (
-                  <TableRow key={vuln.id}>
-                    <TableCell className="font-medium">{vuln.name}</TableCell>
-                    <TableCell>{getSeverityBadge(vuln.severity)}</TableCell>
-                    <TableCell className="font-mono text-sm">{vuln.cve_id || "-"}</TableCell>
-                    <TableCell className="text-muted-foreground">
-                      {vuln.affected_component || "-"}
-                    </TableCell>
-                    <TableCell>
-                      <div className="flex items-center gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => openEditDialog(vuln)}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => handleDelete(vuln.id)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
-                      </div>
-                    </TableCell>
+            <div className="rounded-md border">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Nombre</TableHead>
+                    <TableHead>Severidad</TableHead>
+                    <TableHead>CVE</TableHead>
+                    <TableHead>Componente</TableHead>
+                    <TableHead className="text-right">Acciones</TableHead>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  {filteredVulnerabilities.map((vuln: any) => (
+                    <TableRow key={vuln.id}>
+                      <TableCell className="font-medium">{vuln.name}</TableCell>
+                      <TableCell>{getSeverityBadge(vuln.severity)}</TableCell>
+                      <TableCell className="font-mono text-xs">{vuln.cve_id || "-"}</TableCell>
+                      <TableCell className="text-muted-foreground">{vuln.affected_component || "-"}</TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button variant="ghost" size="icon" onClick={() => openEditDialog(vuln)}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => handleDelete(vuln.id)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </div>
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent>
+          <form onSubmit={handleSubmit}>
+            <DialogHeader>
+              <DialogTitle>{editingVuln ? "Editar" : "Nueva"} Vulnerabilidad</DialogTitle>
+            </DialogHeader>
+            <div className="grid gap-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="name">Nombre *</Label>
+                <Input
+                  id="name"
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label>Severidad</Label>
+                  <Select value={formData.severity} onValueChange={(v) => setFormData({ ...formData, severity: v })}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      {SEVERITY_OPTIONS.map(o => <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="cve_id">CVE ID</Label>
+                  <Input
+                    id="cve_id"
+                    value={formData.cve_id}
+                    onChange={(e) => setFormData({ ...formData, cve_id: e.target.value })}
+                    placeholder="CVE-202X-..."
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="affected_component">Componente Afectado</Label>
+                <Input
+                  id="affected_component"
+                  value={formData.affected_component}
+                  onChange={(e) => setFormData({ ...formData, affected_component: e.target.value })}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="description">Descripción</Label>
+                <Textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                />
+              </div>
+            </div>
+            <DialogFooter>
+              <Button type="submit">Guardar</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

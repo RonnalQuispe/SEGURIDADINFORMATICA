@@ -1,4 +1,5 @@
 import { AppLayout } from "@/components/app-layout"
+// ✅ Importamos con llaves { } porque el componente usa "export function"
 import { IsoControlsContent } from "@/components/tratamiento/iso-controls-content"
 
 export default function IsoControlesPage() {
@@ -10,6 +11,7 @@ export default function IsoControlesPage() {
         { label: "Controles ISO 27002" },
       ]}
     >
+      {/* ✅ Al renderizarlo aquí, ya no será undefined */}
       <IsoControlsContent />
     </AppLayout>
   )

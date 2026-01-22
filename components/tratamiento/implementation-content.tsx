@@ -6,19 +6,28 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Progress } from "@/components/ui/progress"
 import { CheckCircle2, Clock, XCircle, PlayCircle, Target } from "lucide-react"
-import type { RiskTreatment, Risk, IsoControl } from "@/lib/types/database"
+// ✅ CORRECCIÓN 1: ISOControl con mayúsculas
+import type { RiskTreatment, Risk, ISOControl } from "@/lib/types/database"
 
+// ✅ CORRECCIÓN 2: Tipado extendido para asegurar que las propiedades existan
 type TreatmentWithRelations = RiskTreatment & {
   risks: Risk | null
-  iso_controls: IsoControl | null
+  iso_controls: ISOControl | null
+  // Si RiskTreatment no incluye estas explícitamente en el tipo generado:
+  name?: string
+  progress?: number
+  responsible?: string
+  due_date?: string
 }
 
+// ✅ CORRECCIÓN 3: Configuración de estados alineada a los valores Reales de tu DB
+// (Ajustado según los errores de la imagen: Planificado, En Progreso, Implementado, Verificado)
 const STATUS_CONFIG = {
-  pendiente: { label: "Pendiente", color: "bg-slate-500", icon: Clock },
-  en_progreso: { label: "En Progreso", color: "bg-blue-500", icon: PlayCircle },
-  completado: { label: "Completado", color: "bg-green-500", icon: CheckCircle2 },
-  cancelado: { label: "Cancelado", color: "bg-red-500", icon: XCircle },
-}
+  "Planificado": { label: "Planificado", color: "bg-slate-500", icon: Clock },
+  "En Progreso": { label: "En Progreso", color: "bg-blue-500", icon: PlayCircle },
+  "Implementado": { label: "Implementado", color: "bg-green-500", icon: CheckCircle2 },
+  "Verificado": { label: "Verificado", color: "bg-emerald-600", icon: Target },
+} as const;
 
 export function ImplementationContent() {
   const [treatments, setTreatments] = useState<TreatmentWithRelations[]>([])
@@ -32,39 +41,39 @@ export function ImplementationContent() {
         .select("*, risks(*), iso_controls(*)")
         .order("status", { ascending: true })
 
-      setTreatments((data as TreatmentWithRelations[]) || [])
+      setTreatments((data as unknown as TreatmentWithRelations[]) || [])
       setLoading(false)
     }
     fetchData()
   }, [])
 
+  // ✅ CORRECCIÓN 4: Agrupación usando los nombres de estado correctos
   const groupedByStatus = {
-    pendiente: treatments.filter(t => t.status === "pendiente"),
-    en_progreso: treatments.filter(t => t.status === "en_progreso"),
-    completado: treatments.filter(t => t.status === "completado"),
-    cancelado: treatments.filter(t => t.status === "cancelado"),
+    "Planificado": treatments.filter(t => t.status === "Planificado"),
+    "En Progreso": treatments.filter(t => t.status === "En Progreso"),
+    "Implementado": treatments.filter(t => t.status === "Implementado"),
+    "Verificado": treatments.filter(t => t.status === "Verificado"),
   }
 
   const overallProgress = treatments.length > 0
-    ? Math.round(treatments.reduce((sum, t) => sum + (t.progress || 0), 0) / treatments.length)
+    ? Math.round(treatments.reduce((sum, t) => sum + (Number(t.progress) || 0), 0) / treatments.length)
     : 0
 
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="animate-pulse text-muted-foreground">Cargando estado de implementacion...</div>
+        <div className="animate-pulse text-muted-foreground">Cargando estado de implementación...</div>
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
-      {/* Overview */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
             <Target className="h-5 w-5" />
-            Progreso General de Implementacion
+            Progreso General de Implementación
           </CardTitle>
           <CardDescription>
             Estado consolidado de todos los planes de tratamiento
@@ -80,13 +89,10 @@ export function ImplementationContent() {
             
             <div className="grid gap-4 md:grid-cols-4 mt-6">
               {Object.entries(STATUS_CONFIG).map(([status, config]) => {
-                const count = groupedByStatus[status as keyof typeof groupedByStatus].length
+                const count = groupedByStatus[status as keyof typeof groupedByStatus]?.length || 0
                 const Icon = config.icon
                 return (
-                  <div
-                    key={status}
-                    className="flex items-center gap-3 p-4 rounded-lg bg-muted/50"
-                  >
+                  <div key={status} className="flex items-center gap-3 p-4 rounded-lg bg-muted/50">
                     <div className={`p-2 rounded-lg ${config.color}`}>
                       <Icon className="h-4 w-4 text-white" />
                     </div>
@@ -102,10 +108,9 @@ export function ImplementationContent() {
         </CardContent>
       </Card>
 
-      {/* Kanban-style view */}
       <div className="grid gap-6 lg:grid-cols-4">
         {Object.entries(STATUS_CONFIG).map(([status, config]) => {
-          const items = groupedByStatus[status as keyof typeof groupedByStatus]
+          const items = groupedByStatus[status as keyof typeof groupedByStatus] || []
           const Icon = config.icon
           
           return (
@@ -113,7 +118,7 @@ export function ImplementationContent() {
               <CardHeader className="pb-3">
                 <CardTitle className="flex items-center justify-between text-sm">
                   <span className="flex items-center gap-2">
-                    <Icon className={`h-4 w-4 ${status === "completado" ? "text-green-500" : status === "en_progreso" ? "text-blue-500" : status === "cancelado" ? "text-red-500" : "text-slate-500"}`} />
+                    <Icon className={`h-4 w-4 ${status === "Implementado" || status === "Verificado" ? "text-green-500" : status === "En Progreso" ? "text-blue-500" : "text-slate-500"}`} />
                     {config.label}
                   </span>
                   <Badge variant="secondary">{items.length}</Badge>
@@ -121,15 +126,10 @@ export function ImplementationContent() {
               </CardHeader>
               <CardContent className="space-y-3">
                 {items.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    Sin elementos
-                  </p>
+                  <p className="text-sm text-muted-foreground text-center py-4">Sin elementos</p>
                 ) : (
                   items.map((treatment) => (
-                    <div
-                      key={treatment.id}
-                      className="p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors"
-                    >
+                    <div key={treatment.id} className="p-3 rounded-lg border bg-card hover:bg-muted/50 transition-colors">
                       <p className="font-medium text-sm truncate">{treatment.name}</p>
                       {treatment.risks && (
                         <p className="text-xs text-muted-foreground mt-1 truncate">

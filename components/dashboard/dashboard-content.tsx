@@ -1,8 +1,21 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Server, AlertTriangle, Shield, Activity, TrendingUp, TrendingDown } from "lucide-react"
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import {
+  Server,
+  AlertTriangle,
+  Shield,
+  Activity,
+  TrendingUp,
+  TrendingDown,
+} from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import { RiskMatrixChart } from "@/components/dashboard/risk-matrix-chart"
 import { RiskDistributionChart } from "@/components/dashboard/risk-distribution-chart"
@@ -24,16 +37,17 @@ export function DashboardContent() {
     treatedRisks: 0,
     pendingTreatments: 0,
   })
+
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     async function fetchStats() {
       const supabase = createClient()
-      
+
       const [assetsRes, risksRes, treatmentsRes] = await Promise.all([
         supabase.from("assets").select("id", { count: "exact" }),
-        supabase.from("risks").select("id, risk_level", { count: "exact" }),
-        supabase.from("risk_treatments").select("id, status", { count: "exact" }),
+        supabase.from("risks").select("id, inherent_risk_category"),
+        supabase.from("risk_treatments").select("id, status"),
       ])
 
       const risks = risksRes.data || []
@@ -41,11 +55,18 @@ export function DashboardContent() {
 
       setStats({
         totalAssets: assetsRes.count || 0,
-        totalRisks: risksRes.count || 0,
-        highRisks: risks.filter(r => r.risk_level === "critico" || r.risk_level === "alto").length,
-        treatedRisks: treatments.filter(t => t.status === "completado").length,
-        pendingTreatments: treatments.filter(t => t.status === "pendiente" || t.status === "en_progreso").length,
+        totalRisks: risks.length,
+        highRisks: risks.filter(r =>
+          ["Crítico", "Alto"].includes(r.inherent_risk_category)
+        ).length,
+        treatedRisks: treatments.filter(t =>
+          ["Implementado", "Verificado"].includes(t.status)
+        ).length,
+        pendingTreatments: treatments.filter(t =>
+          ["Planificado", "En Progreso"].includes(t.status)
+        ).length,
       })
+
       setLoading(false)
     }
 
@@ -59,26 +80,20 @@ export function DashboardContent() {
       description: "Total de activos en el inventario",
       icon: Server,
       trend: null,
-      color: "text-chart-2",
-      bgColor: "bg-chart-2/10",
     },
     {
       title: "Riesgos Identificados",
       value: stats.totalRisks,
-      description: "Riesgos en la matriz",
+      description: "Riesgos registrados en el sistema",
       icon: AlertTriangle,
       trend: null,
-      color: "text-chart-3",
-      bgColor: "bg-chart-3/10",
     },
     {
-      title: "Riesgos Criticos/Altos",
+      title: "Riesgos Críticos / Altos",
       value: stats.highRisks,
-      description: "Requieren atencion inmediata",
+      description: "Requieren atención inmediata",
       icon: Activity,
       trend: stats.highRisks > 0 ? "up" : null,
-      color: "text-chart-4",
-      bgColor: "bg-chart-4/10",
     },
     {
       title: "Tratamientos Completados",
@@ -86,38 +101,32 @@ export function DashboardContent() {
       description: `${stats.pendingTreatments} pendientes`,
       icon: Shield,
       trend: stats.treatedRisks > 0 ? "down" : null,
-      color: "text-chart-1",
-      bgColor: "bg-chart-1/10",
     },
   ]
 
   return (
     <div className="space-y-6">
-      {/* Stats Grid */}
+      {/* STATS */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        {statCards.map((stat) => (
-          <Card key={stat.title} className="relative overflow-hidden">
+        {statCards.map(stat => (
+          <Card key={stat.title}>
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">
+              <CardTitle className="text-sm text-muted-foreground">
                 {stat.title}
               </CardTitle>
-              <div className={`rounded-lg p-2 ${stat.bgColor}`}>
-                <stat.icon className={`h-4 w-4 ${stat.color}`} />
-              </div>
+              <stat.icon className="h-4 w-4 text-muted-foreground" />
             </CardHeader>
             <CardContent>
-              <div className="flex items-baseline gap-2">
+              <div className="flex items-center gap-2">
                 <div className="text-3xl font-bold">
                   {loading ? "-" : stat.value}
                 </div>
                 {stat.trend && (
-                  <span className={stat.trend === "up" ? "text-destructive" : "text-success"}>
-                    {stat.trend === "up" ? (
-                      <TrendingUp className="h-4 w-4" />
-                    ) : (
-                      <TrendingDown className="h-4 w-4" />
-                    )}
-                  </span>
+                  stat.trend === "up" ? (
+                    <TrendingUp className="h-4 w-4 text-destructive" />
+                  ) : (
+                    <TrendingDown className="h-4 w-4 text-success" />
+                  )
                 )}
               </div>
               <p className="text-xs text-muted-foreground mt-1">
@@ -128,13 +137,13 @@ export function DashboardContent() {
         ))}
       </div>
 
-      {/* Charts Row */}
+      {/* CHARTS */}
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle>Matriz de Riesgos</CardTitle>
             <CardDescription>
-              Distribucion de riesgos por probabilidad e impacto
+              Probabilidad vs Impacto
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -144,9 +153,9 @@ export function DashboardContent() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Distribucion por Nivel</CardTitle>
+            <CardTitle>Distribución por Nivel</CardTitle>
             <CardDescription>
-              Clasificacion de riesgos por nivel de severidad
+              Clasificación de riesgos
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -155,12 +164,12 @@ export function DashboardContent() {
         </Card>
       </div>
 
-      {/* Recent Activity */}
+      {/* ACTIVIDAD RECIENTE */}
       <Card>
         <CardHeader>
           <CardTitle>Actividad Reciente</CardTitle>
           <CardDescription>
-            Ultimas acciones en el sistema de gestion de riesgos
+            Últimos cambios en riesgos y tratamientos
           </CardDescription>
         </CardHeader>
         <CardContent>
