@@ -88,8 +88,18 @@ const navigationItems = [
     url: "/reportes",
     icon: FileText,
     items: [
-      { title: "Documentacion", url: "/reportes/documentacion" },
-      { title: "Exportar", url: "/reportes/exportar" },
+      { title: "Generar Reporte", url: "/reportes/generar" },
+      { title: "Historial", url: "/reportes/historial" },
+    ],
+  },
+  {
+    title: "Documentacion",
+    url: "/documentacion",
+    icon: Settings,
+    items: [
+      { title: "Manual de Usuario", url: "/documentacion/manual-usuario" },
+      { title: "Respaldo Tecnico", url: "/documentacion/respaldo-tecnico" },
+      { title: "Descripcion del Sistema", url: "/documentacion/descripcion-sistema" },
     ],
   },
 ]
