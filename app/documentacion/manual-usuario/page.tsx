@@ -39,7 +39,7 @@ export default function ManualUsuarioPage() {
                 </svg>
               </div>
             </div>
-            <h1 className="text-4xl font-bold text-foreground mb-4">CyberRisk Manager</h1>
+            <h1 className="text-4xl font-bold text-foreground mb-4">CyberSeg Manager</h1>
             <h2 className="text-2xl text-muted-foreground mb-8">Manual de Usuario</h2>
             <div className="text-sm text-muted-foreground">
               <p>Version 1.0</p>
@@ -53,7 +53,7 @@ export default function ManualUsuarioPage() {
             
             <h3 className="text-xl font-semibold mt-6 mb-3">1.1 Proposito del Sistema</h3>
             <p className="text-justify leading-relaxed">
-              CyberRisk Manager es un sistema integral de gestion de riesgos ciberneticos disenado para ayudar a las organizaciones a identificar, evaluar, tratar y monitorear los riesgos de seguridad de la informacion de manera sistematica y conforme a los estandares internacionales ISO 27001 e ISO 27002:2022.
+              CyberSeg Manager es un sistema integral de gestion de riesgos ciberneticos disenado para ayudar a las organizaciones a identificar, evaluar, tratar y monitorear los riesgos de seguridad de la informacion de manera sistematica y conforme a los estandares internacionales ISO 27001 e ISO 27002:2022.
             </p>
 
             <h3 className="text-xl font-semibold mt-6 mb-3">1.2 Alcance</h3>
@@ -315,7 +315,7 @@ export default function ManualUsuarioPage() {
 
           {/* Pie de documento */}
           <footer className="mt-16 pt-8 border-t border-border text-center text-sm text-muted-foreground print:mt-8">
-            <p>CyberRisk Manager - Manual de Usuario v1.0</p>
+            <p>CyberSeg Manager - Manual de Usuario v1.0</p>
             <p>Documento generado el {new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
           </footer>
         </article>

@@ -460,7 +460,7 @@ export default function RespaldoTecnicoPage() {
 
           {/* Pie de documento */}
           <footer className="mt-16 pt-8 border-t border-border text-center text-sm text-muted-foreground">
-            <p>CyberRisk Manager - Documento de Respaldo Tecnico v1.0</p>
+            <p>CyberSeg Manager - Documento de Respaldo Tecnico v1.0</p>
             <p>Documento generado el {new Date().toLocaleDateString('es-ES', { year: 'numeric', month: 'long', day: 'numeric' })}</p>
           </footer>
         </article>

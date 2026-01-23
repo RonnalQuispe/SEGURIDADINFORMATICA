@@ -35,12 +35,16 @@ import { Badge } from "@/components/ui/badge"
 import { Plus, Pencil, Trash2, Bug, Search } from "lucide-react"
 import type { Threat } from "@/lib/types/database"
 
-const THREAT_TYPES = [
-  { value: "natural", label: "Natural" },
-  { value: "humano_intencional", label: "Humano Intencional" },
-  { value: "humano_no_intencional", label: "Humano No Intencional" },
-  { value: "tecnico", label: "Técnico" },
-  { value: "ambiental", label: "Ambiental" },
+/**
+ * IMPORTANTE: Los valores deben coincidir con el CHECK de tu SQL:
+ * 'Natural', 'Humana Intencional', 'Humana No Intencional', 'Técnica', 'Ambiental'
+ */
+const THREAT_CATEGORIES = [
+  { value: "Natural", label: "Natural", color: "bg-blue-500" },
+  { value: "Humana Intencional", label: "Humana Intencional", color: "bg-red-500" },
+  { value: "Humana No Intencional", label: "Humana No Intencional", color: "bg-orange-500" },
+  { value: "Técnica", label: "Técnica", color: "bg-slate-500" },
+  { value: "Ambiental", label: "Ambiental", color: "bg-green-500" },
 ]
 
 export function ThreatsContent() {
@@ -50,11 +54,10 @@ export function ThreatsContent() {
   const [editingThreat, setEditingThreat] = useState<Threat | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
   
-  // Estado inicial para limpiar el formulario
   const initialFormState = {
     name: "",
     description: "",
-    threat_type: "tecnico",
+    category: "Técnica", // En SQL se llama 'category', no 'threat_type'
     source: "",
   }
 
@@ -63,6 +66,7 @@ export function ThreatsContent() {
   async function fetchThreats() {
     setLoading(true)
     const supabase = createClient()
+    // Consultamos la tabla 'threats'
     const { data, error } = await supabase.from("threats").select("*").order("name")
     if (!error) {
       setThreats(data || [])
@@ -90,49 +94,35 @@ export function ThreatsContent() {
     fetchThreats()
   }
 
-  // Se cambia id a 'any' o 'string | number' para resolver el error de asignación de la imagen
-  async function handleDelete(id: any) {
+  async function handleDelete(id: string) {
     if (!confirm("¿Está seguro de eliminar esta amenaza?")) return
     const supabase = createClient()
     await supabase.from("threats").delete().eq("id", id)
     fetchThreats()
   }
 
-  function openEditDialog(threat: any) { // Usamos any para evitar errores de propiedad inexistente si el tipo falla
+  function openEditDialog(threat: Threat) {
     setEditingThreat(threat)
     setFormData({
-      name: threat.name || "",
+      name: threat.name,
       description: threat.description || "",
-      threat_type: threat.threat_type || "tecnico",
+      category: threat.category, // Mapeo correcto
       source: threat.source || "",
     })
     setIsDialogOpen(true)
   }
 
-  function openNewDialog() {
-    setEditingThreat(null)
-    setFormData(initialFormState)
-    setIsDialogOpen(true)
-  }
-
   const filteredThreats = threats.filter(
-    (threat: any) =>
-      (threat.name?.toLowerCase() || "").includes(searchTerm.toLowerCase()) ||
-      (threat.threat_type?.toLowerCase() || "").includes(searchTerm.toLowerCase())
+    (threat) =>
+      threat.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      threat.category.toLowerCase().includes(searchTerm.toLowerCase())
   )
 
-  function getThreatTypeBadge(type: string | null) {
-    const typeConfig = THREAT_TYPES.find((t) => t.value === type)
-    const colors: Record<string, string> = {
-      natural: "bg-blue-500",
-      humano_intencional: "bg-red-500",
-      humano_no_intencional: "bg-orange-500",
-      tecnico: "bg-slate-500",
-      ambiental: "bg-green-500",
-    }
+  function getCategoryBadge(categoryName: string) {
+    const config = THREAT_CATEGORIES.find((t) => t.value === categoryName)
     return (
-      <Badge className={`${colors[type || "tecnico"] || "bg-slate-500"} text-white border-none`}>
-        {typeConfig?.label || type}
+      <Badge className={`${config?.color || "bg-slate-500"} text-white border-none`}>
+        {config?.label || categoryName}
       </Badge>
     )
   }
@@ -143,75 +133,54 @@ export function ThreatsContent() {
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle>Catálogo de Amenazas</CardTitle>
-            <CardDescription>
-              Identifica y registra las amenazas que pueden afectar los activos
-            </CardDescription>
+            <CardDescription>Sincronizado con Base de Datos SQL</CardDescription>
           </div>
-          <Button onClick={openNewDialog}>
-            <Plus className="h-4 w-4 mr-2" />
-            Nueva Amenaza
+          <Button onClick={() => { setEditingThreat(null); setFormData(initialFormState); setIsDialogOpen(true); }}>
+            <Plus className="h-4 w-4 mr-2" /> Nueva Amenaza
           </Button>
         </CardHeader>
         <CardContent>
-          <div className="mb-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar amenazas..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+          <div className="mb-4 relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input
+              placeholder="Buscar por nombre o categoría..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
           </div>
 
-          {loading ? (
-            <div className="flex items-center justify-center h-32">
-              <div className="animate-pulse text-muted-foreground">Cargando amenazas...</div>
-            </div>
-          ) : filteredThreats.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-32 text-muted-foreground text-center">
-              <Bug className="h-8 w-8 mb-2 opacity-50" />
-              <p>No hay amenazas registradas</p>
-              <p className="text-sm">Crea la primera amenaza para comenzar</p>
-            </div>
-          ) : (
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Nombre</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Fuente</TableHead>
-                    <TableHead>Descripción</TableHead>
-                    <TableHead className="text-right">Acciones</TableHead>
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Nombre</TableHead>
+                  <TableHead>Categoría (Tipo)</TableHead>
+                  <TableHead>Fuente</TableHead>
+                  <TableHead>Descripción</TableHead>
+                  <TableHead className="text-right">Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {loading ? (
+                  <TableRow><TableCell colSpan={5} className="text-center py-10 text-muted-foreground">Cargando...</TableCell></TableRow>
+                ) : filteredThreats.map((threat) => (
+                  <TableRow key={threat.id}>
+                    <TableCell className="font-medium">{threat.name}</TableCell>
+                    <TableCell>{getCategoryBadge(threat.category)}</TableCell>
+                    <TableCell>{threat.source || "-"}</TableCell>
+                    <TableCell className="max-w-xs truncate">{threat.description || "-"}</TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-2">
+                        <Button variant="ghost" size="icon" onClick={() => openEditDialog(threat)}><Pencil className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" onClick={() => handleDelete(threat.id)}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                      </div>
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredThreats.map((threat: any) => (
-                    <TableRow key={threat.id}>
-                      <TableCell className="font-medium">{threat.name}</TableCell>
-                      <TableCell>{getThreatTypeBadge(threat.threat_type)}</TableCell>
-                      <TableCell className="text-muted-foreground">{threat.source || "-"}</TableCell>
-                      <TableCell className="text-muted-foreground max-w-xs truncate">
-                        {threat.description || "-"}
-                      </TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button variant="ghost" size="icon" onClick={() => openEditDialog(threat)}>
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleDelete(threat.id)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+                ))}
+              </TableBody>
+            </Table>
+          </div>
         </CardContent>
       </Card>
 
@@ -219,66 +188,33 @@ export function ThreatsContent() {
         <DialogContent>
           <form onSubmit={handleSubmit}>
             <DialogHeader>
-              <DialogTitle>
-                {editingThreat ? "Editar Amenaza" : "Nueva Amenaza"}
-              </DialogTitle>
+              <DialogTitle>{editingThreat ? "Editar" : "Nueva"} Amenaza</DialogTitle>
             </DialogHeader>
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Nombre *</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Nombre de la amenaza"
-                  required
-                />
+                <Label>Nombre *</Label>
+                <Input required value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="threat_type">Tipo de Amenaza</Label>
-                <Select
-                  value={formData.threat_type}
-                  onValueChange={(value) => setFormData({ ...formData, threat_type: value })}
-                >
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
+                <Label>Categoría de Amenaza</Label>
+                <Select value={formData.category} onValueChange={v => setFormData({...formData, category: v})}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
                   <SelectContent>
-                    {THREAT_TYPES.map((type) => (
-                      <SelectItem key={type.value} value={type.value}>
-                        {type.label}
-                      </SelectItem>
-                    ))}
+                    {THREAT_CATEGORIES.map(c => <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>)}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="source">Fuente/Origen</Label>
-                <Input
-                  id="source"
-                  value={formData.source}
-                  onChange={(e) => setFormData({ ...formData, source: e.target.value })}
-                  placeholder="Origen de la amenaza"
-                />
+                <Label>Fuente / Origen</Label>
+                <Input value={formData.source} onChange={e => setFormData({...formData, source: e.target.value})} placeholder="Ej. Externa, Interna..." />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="description">Descripción</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Descripción de la amenaza..."
-                  rows={3}
-                />
+                <Label>Descripción</Label>
+                <Textarea value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} rows={3} />
               </div>
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                Cancelar
-              </Button>
-              <Button type="submit">
-                {editingThreat ? "Guardar Cambios" : "Crear Amenaza"}
-              </Button>
+              <Button type="submit" className="w-full">Guardar Amenaza</Button>
             </DialogFooter>
           </form>
         </DialogContent>

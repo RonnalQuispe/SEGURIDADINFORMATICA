@@ -1,192 +1,144 @@
 "use client"
 
-import React from "react"
-
-import { useEffect, useState } from "react"
+import React, { useEffect, useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select"
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog"
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Pencil, Trash2, Calculator, ArrowRight, Search } from "lucide-react"
+import { Plus, Pencil, Trash2, Calculator, ArrowRight, Search, Loader2 } from "lucide-react"
+
+// Tipos adaptados al esquema SQL proporcionado
 import type { ResidualRisk, Risk, RiskTreatment } from "@/lib/types/database"
 
+type RiskExtended = Risk & { inherent_risk_category?: string }
+type TreatmentExtended = RiskTreatment & { proposed_control?: string }
+
 type ResidualRiskWithRelations = ResidualRisk & {
-  risks: Risk | null
-  risk_treatments: RiskTreatment | null
+  risks: RiskExtended | null
+  risk_treatments: TreatmentExtended | null
+  // Propiedades que TS reclama y que están en tu SQL
+  residual_risk_category?: string
+  is_acceptable?: boolean
+  notes?: string
+  evaluated_by?: string
 }
 
 const RISK_LEVELS = [
-  { value: "critico", label: "Critico", color: "bg-red-500" },
-  { value: "alto", label: "Alto", color: "bg-orange-500" },
-  { value: "medio", label: "Medio", color: "bg-yellow-500" },
-  { value: "bajo", label: "Bajo", color: "bg-green-500" },
+  { value: "Crítico", label: "Crítico", color: "bg-red-500" },
+  { value: "Alto", label: "Alto", color: "bg-orange-500" },
+  { value: "Medio", label: "Medio", color: "bg-yellow-500" },
+  { value: "Bajo", label: "Bajo", color: "bg-green-500" },
+  { value: "Muy Bajo", label: "Muy Bajo", color: "bg-blue-500" },
 ]
 
-const ACCEPTANCE_OPTIONS = [
-  { value: "aceptado", label: "Aceptado", color: "bg-green-500" },
-  { value: "no_aceptado", label: "No Aceptado", color: "bg-red-500" },
-  { value: "requiere_revision", label: "Requiere Revision", color: "bg-yellow-500" },
-]
-
-function calculateResidualLevel(probability: number, impact: number): string {
+function calculateCategory(probability: number, impact: number): string {
   const score = probability * impact
-  if (score >= 20) return "critico"
-  if (score >= 12) return "alto"
-  if (score >= 6) return "medio"
-  return "bajo"
+  if (score >= 20) return "Crítico"
+  if (score >= 15) return "Alto"
+  if (score >= 10) return "Medio"
+  if (score >= 5) return "Bajo"
+  return "Muy Bajo"
 }
 
 export function ResidualCalculationContent() {
   const [residualRisks, setResidualRisks] = useState<ResidualRiskWithRelations[]>([])
-  const [risks, setRisks] = useState<Risk[]>([])
-  const [treatments, setTreatments] = useState<RiskTreatment[]>([])
+  const [risks, setRisks] = useState<RiskExtended[]>([])
+  const [treatments, setTreatments] = useState<TreatmentExtended[]>([])
   const [loading, setLoading] = useState(true)
   const [isDialogOpen, setIsDialogOpen] = useState(false)
-  const [editingResidual, setEditingResidual] = useState<ResidualRisk | null>(null)
+  const [editingResidual, setEditingResidual] = useState<ResidualRiskWithRelations | null>(null)
   const [searchTerm, setSearchTerm] = useState("")
+
   const [formData, setFormData] = useState({
     risk_id: "",
     treatment_id: "",
     residual_probability: 2,
     residual_impact: 2,
-    residual_level: "bajo",
-    acceptance_status: "requiere_revision",
-    justification: "",
-    accepted_by: "",
+    residual_risk_category: "Bajo",
+    is_acceptable: false,
+    notes: "",
+    evaluated_by: "",
   })
 
   async function fetchData() {
-    const supabase = createClient()
-    const [residualRes, risksRes, treatmentsRes] = await Promise.all([
-      supabase.from("residual_risks").select("*, risks(*), risk_treatments(*)").order("created_at", { ascending: false }),
-      supabase.from("risks").select("*").order("name"),
-      supabase.from("risk_treatments").select("*").order("name"),
-    ])
+    try {
+      setLoading(true)
+      const supabase = createClient()
+      
+      const [residualRes, risksRes, treatmentsRes] = await Promise.all([
+        supabase.from("residual_risks").select("*, risks(*), risk_treatments(*)").order("created_at", { ascending: false }),
+        supabase.from("risks").select("*").order("name"),
+        supabase.from("risk_treatments").select("*")
+      ])
 
-    setResidualRisks((residualRes.data as ResidualRiskWithRelations[]) || [])
-    setRisks(risksRes.data || [])
-    setTreatments(treatmentsRes.data || [])
-    setLoading(false)
+      setResidualRisks((residualRes.data as unknown as ResidualRiskWithRelations[]) || [])
+      setRisks(risksRes.data || [])
+      setTreatments(treatmentsRes.data || [])
+    } catch (error: any) {
+      console.error("Error:", error.message)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  useEffect(() => {
-    fetchData()
-  }, [])
+  useEffect(() => { fetchData() }, [])
 
   useEffect(() => {
-    const level = calculateResidualLevel(formData.residual_probability, formData.residual_impact)
-    setFormData((prev) => ({ ...prev, residual_level: level }))
+    const category = calculateCategory(formData.residual_probability, formData.residual_impact)
+    setFormData((prev) => ({ ...prev, residual_risk_category: category }))
   }, [formData.residual_probability, formData.residual_impact])
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     const supabase = createClient()
 
-    const residualData = {
-      risk_id: formData.risk_id || null,
-      treatment_id: formData.treatment_id || null,
+    const dataToSave = {
+      risk_id: formData.risk_id,
+      treatment_id: formData.treatment_id,
       residual_probability: formData.residual_probability,
       residual_impact: formData.residual_impact,
-      residual_level: formData.residual_level,
-      acceptance_status: formData.acceptance_status,
-      justification: formData.justification,
-      accepted_by: formData.accepted_by,
+      residual_risk_category: formData.residual_risk_category,
+      is_acceptable: formData.is_acceptable,
+      notes: formData.notes,
+      evaluated_by: formData.evaluated_by,
     }
 
-    if (editingResidual) {
-      await supabase.from("residual_risks").update(residualData).eq("id", editingResidual.id)
+    const { error } = editingResidual 
+      ? await supabase.from("residual_risks").update(dataToSave).eq("id", editingResidual.id)
+      : await supabase.from("residual_risks").insert([dataToSave])
+
+    if (error) {
+      alert(`Error: ${error.message}`)
     } else {
-      await supabase.from("residual_risks").insert(residualData)
+      setIsDialogOpen(false)
+      resetForm()
+      fetchData()
     }
-
-    setIsDialogOpen(false)
-    setEditingResidual(null)
-    resetForm()
-    fetchData()
   }
 
   function resetForm() {
+    setEditingResidual(null)
     setFormData({
       risk_id: "",
       treatment_id: "",
       residual_probability: 2,
       residual_impact: 2,
-      residual_level: "bajo",
-      acceptance_status: "requiere_revision",
-      justification: "",
-      accepted_by: "",
+      residual_risk_category: "Bajo",
+      is_acceptable: false,
+      notes: "",
+      evaluated_by: "",
     })
   }
 
-  async function handleDelete(id: string) {
-    if (!confirm("Esta seguro de eliminar este riesgo residual?")) return
-    const supabase = createClient()
-    await supabase.from("residual_risks").delete().eq("id", id)
-    fetchData()
-  }
-
-  function openEditDialog(residual: ResidualRiskWithRelations) {
-    setEditingResidual(residual)
-    setFormData({
-      risk_id: residual.risk_id || "",
-      treatment_id: residual.treatment_id || "",
-      residual_probability: residual.residual_probability || 2,
-      residual_impact: residual.residual_impact || 2,
-      residual_level: residual.residual_level || "bajo",
-      acceptance_status: residual.acceptance_status || "requiere_revision",
-      justification: residual.justification || "",
-      accepted_by: residual.accepted_by || "",
-    })
-    setIsDialogOpen(true)
-  }
-
-  function openNewDialog() {
-    setEditingResidual(null)
-    resetForm()
-    setIsDialogOpen(true)
-  }
-
-  const filteredResidual = residualRisks.filter((r) =>
-    r.risks?.name.toLowerCase().includes(searchTerm.toLowerCase())
-  )
-
-  function getRiskLevelBadge(level: string | null) {
-    const option = RISK_LEVELS.find((o) => o.value === level)
-    if (!option) return <Badge variant="secondary">-</Badge>
-    return <Badge className={`${option.color} text-white`}>{option.label}</Badge>
-  }
-
-  function getAcceptanceBadge(status: string | null) {
-    const option = ACCEPTANCE_OPTIONS.find((o) => o.value === status)
-    if (!option) return <Badge variant="secondary">-</Badge>
-    return <Badge className={`${option.color} text-white`}>{option.label}</Badge>
+  function getBadge(value: string | undefined | null) {
+    const option = RISK_LEVELS.find((o) => o.value === value)
+    return <Badge className={`${option?.color || "bg-gray-400"} text-white`}>{value || "-"}</Badge>
   }
 
   return (
@@ -195,227 +147,153 @@ export function ResidualCalculationContent() {
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle className="flex items-center gap-2">
-              <Calculator className="h-5 w-5" />
-              Calculo de Riesgo Residual
+              <Calculator className="h-5 w-5" /> Cálculo de Riesgo Residual
             </CardTitle>
-            <CardDescription>
-              Evalua el riesgo que permanece despues de aplicar los controles
-            </CardDescription>
           </div>
-          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={openNewDialog}>
-                <Plus className="h-4 w-4 mr-2" />
-                Nuevo Calculo
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <form onSubmit={handleSubmit}>
-                <DialogHeader>
-                  <DialogTitle>
-                    {editingResidual ? "Editar Riesgo Residual" : "Nuevo Calculo de Riesgo Residual"}
-                  </DialogTitle>
-                  <DialogDescription>
-                    Calcula el riesgo que permanece despues del tratamiento
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label>Riesgo Original</Label>
-                      <Select
-                        value={formData.risk_id}
-                        onValueChange={(value) => setFormData({ ...formData, risk_id: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar riesgo..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {risks.map((risk) => (
-                            <SelectItem key={risk.id} value={risk.id}>
-                              {risk.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Tratamiento Aplicado</Label>
-                      <Select
-                        value={formData.treatment_id}
-                        onValueChange={(value) => setFormData({ ...formData, treatment_id: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue placeholder="Seleccionar tratamiento..." />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {treatments.map((t) => (
-                            <SelectItem key={t.id} value={t.id}>
-                              {t.name}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-3">
-                    <div className="space-y-2">
-                      <Label>Probabilidad Residual (1-5)</Label>
-                      <Input
-                        type="number"
-                        min={1}
-                        max={5}
-                        value={formData.residual_probability}
-                        onChange={(e) => setFormData({ ...formData, residual_probability: parseInt(e.target.value) || 1 })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Impacto Residual (1-5)</Label>
-                      <Input
-                        type="number"
-                        min={1}
-                        max={5}
-                        value={formData.residual_impact}
-                        onChange={(e) => setFormData({ ...formData, residual_impact: parseInt(e.target.value) || 1 })}
-                      />
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Nivel Residual</Label>
-                      <div className="h-10 flex items-center">
-                        {getRiskLevelBadge(formData.residual_level)}
-                        <span className="ml-2 text-sm text-muted-foreground">
-                          (Score: {formData.residual_probability * formData.residual_impact})
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="grid gap-4 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <Label>Estado de Aceptacion</Label>
-                      <Select
-                        value={formData.acceptance_status}
-                        onValueChange={(value) => setFormData({ ...formData, acceptance_status: value })}
-                      >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {ACCEPTANCE_OPTIONS.map((opt) => (
-                            <SelectItem key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div className="space-y-2">
-                      <Label>Aceptado Por</Label>
-                      <Input
-                        value={formData.accepted_by}
-                        onChange={(e) => setFormData({ ...formData, accepted_by: e.target.value })}
-                        placeholder="Nombre del responsable"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label>Justificacion</Label>
-                    <Textarea
-                      value={formData.justification}
-                      onChange={(e) => setFormData({ ...formData, justification: e.target.value })}
-                      placeholder="Justificacion de la decision de aceptacion..."
-                      rows={3}
-                    />
-                  </div>
-                </div>
-                <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setIsDialogOpen(false)}>
-                    Cancelar
-                  </Button>
-                  <Button type="submit">
-                    {editingResidual ? "Guardar Cambios" : "Calcular Residual"}
-                  </Button>
-                </DialogFooter>
-              </form>
-            </DialogContent>
-          </Dialog>
+          <Button onClick={() => { resetForm(); setIsDialogOpen(true); }}>
+            <Plus className="h-4 w-4 mr-2" /> Nuevo Cálculo
+          </Button>
         </CardHeader>
         <CardContent>
-          <div className="mb-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por riesgo..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+          <div className="relative mb-4">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+            <Input 
+              placeholder="Buscar por riesgo..." 
+              className="pl-10" 
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
 
           {loading ? (
-            <div className="flex items-center justify-center h-32">
-              <div className="animate-pulse text-muted-foreground">Cargando calculos...</div>
-            </div>
-          ) : filteredResidual.length === 0 ? (
-            <div className="flex flex-col items-center justify-center h-32 text-muted-foreground">
-              <Calculator className="h-8 w-8 mb-2 opacity-50" />
-              <p>No hay calculos de riesgo residual</p>
-              <p className="text-sm">Realiza el primer calculo</p>
-            </div>
+            <div className="flex justify-center p-8"><Loader2 className="h-8 w-8 animate-spin" /></div>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Riesgo</TableHead>
-                    <TableHead>Original</TableHead>
-                    <TableHead></TableHead>
-                    <TableHead>Residual</TableHead>
-                    <TableHead className="text-center">P x I</TableHead>
-                    <TableHead>Aceptacion</TableHead>
-                    <TableHead className="w-24">Acciones</TableHead>
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Riesgo</TableHead>
+                  <TableHead>Original</TableHead>
+                  <TableHead></TableHead>
+                  <TableHead>Residual</TableHead>
+                  <TableHead className="text-center">P x I</TableHead>
+                  <TableHead>Aceptable</TableHead>
+                  <TableHead>Acciones</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {residualRisks.filter(r => r.risks?.name?.toLowerCase().includes(searchTerm.toLowerCase())).map((residual) => (
+                  <TableRow key={residual.id}>
+                    <TableCell className="font-medium">{residual.risks?.name}</TableCell>
+                    <TableCell>{getBadge(residual.risks?.inherent_risk_category)}</TableCell>
+                    <TableCell><ArrowRight className="h-4 w-4" /></TableCell>
+                    <TableCell>{getBadge(residual.residual_risk_category)}</TableCell>
+                    <TableCell className="text-center">{residual.residual_probability} x {residual.residual_impact}</TableCell>
+                    <TableCell>
+                        <Badge variant={residual.is_acceptable ? "default" : "destructive"}>
+                            {residual.is_acceptable ? "Sí" : "No"}
+                        </Badge>
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex gap-2">
+                        <Button variant="ghost" size="icon" onClick={() => {
+                          setEditingResidual(residual);
+                          setFormData({
+                            risk_id: residual.risk_id,
+                            treatment_id: residual.treatment_id,
+                            residual_probability: residual.residual_probability,
+                            residual_impact: residual.residual_impact,
+                            residual_risk_category: residual.residual_risk_category || "Bajo",
+                            is_acceptable: !!residual.is_acceptable,
+                            notes: residual.notes || "",
+                            evaluated_by: residual.evaluated_by || "",
+                          });
+                          setIsDialogOpen(true);
+                        }}><Pencil className="h-4 w-4" /></Button>
+                        <Button variant="ghost" size="icon" onClick={async () => {
+                            if(confirm("¿Eliminar?")) {
+                                await createClient().from("residual_risks").delete().eq("id", residual.id);
+                                fetchData();
+                            }
+                        }}><Trash2 className="h-4 w-4 text-destructive" /></Button>
+                      </div>
+                    </TableCell>
                   </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredResidual.map((residual) => (
-                    <TableRow key={residual.id}>
-                      <TableCell className="font-medium max-w-xs truncate">
-                        {residual.risks?.name || "-"}
-                      </TableCell>
-                      <TableCell>
-                        {getRiskLevelBadge(residual.risks?.risk_level || null)}
-                      </TableCell>
-                      <TableCell>
-                        <ArrowRight className="h-4 w-4 text-muted-foreground" />
-                      </TableCell>
-                      <TableCell>
-                        {getRiskLevelBadge(residual.residual_level)}
-                      </TableCell>
-                      <TableCell className="text-center font-mono">
-                        {residual.residual_probability} x {residual.residual_impact} = {(residual.residual_probability || 0) * (residual.residual_impact || 0)}
-                      </TableCell>
-                      <TableCell>{getAcceptanceBadge(residual.acceptance_status)}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-2">
-                          <Button variant="ghost" size="icon" onClick={() => openEditDialog(residual)}>
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => handleDelete(residual.id)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                ))}
+              </TableBody>
+            </Table>
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <DialogHeader><DialogTitle>Cálculo de Riesgo Residual</DialogTitle></DialogHeader>
+            
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>Riesgo</Label>
+                <Select value={formData.risk_id} onValueChange={(v) => setFormData({...formData, risk_id: v})}>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                  <SelectContent>
+                    {risks.map(r => <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label>Tratamiento</Label>
+                <Select value={formData.treatment_id} onValueChange={(v) => setFormData({...formData, treatment_id: v})}>
+                  <SelectTrigger><SelectValue placeholder="Seleccionar..." /></SelectTrigger>
+                  <SelectContent>
+                    {treatments.map(t => <SelectItem key={t.id} value={t.id}>{t.proposed_control || "Sin nombre"}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4 bg-slate-50 p-4 rounded-lg">
+              <div className="space-y-2">
+                <Label>Probabilidad (1-5)</Label>
+                <Input type="number" min={1} max={5} value={formData.residual_probability} onChange={e => setFormData({...formData, residual_probability: parseInt(e.target.value)})}/>
+              </div>
+              <div className="space-y-2">
+                <Label>Impacto (1-5)</Label>
+                <Input type="number" min={1} max={5} value={formData.residual_impact} onChange={e => setFormData({...formData, residual_impact: parseInt(e.target.value)})}/>
+              </div>
+              <div className="space-y-2">
+                <Label>Categoría Residual</Label>
+                <div className="pt-2">{getBadge(formData.residual_risk_category)}</div>
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                    <Label>¿Es Aceptable?</Label>
+                    <Select value={formData.is_acceptable ? "true" : "false"} onValueChange={(v) => setFormData({...formData, is_acceptable: v === "true"})}>
+                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="true">Sí, aceptado</SelectItem>
+                            <SelectItem value="false">No aceptado</SelectItem>
+                        </SelectContent>
+                    </Select>
+                </div>
+                <div className="space-y-2">
+                    <Label>Evaluado por</Label>
+                    <Input value={formData.evaluated_by} onChange={e => setFormData({...formData, evaluated_by: e.target.value})}/>
+                </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label>Notas / Justificación</Label>
+              <Textarea value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})}/>
+            </div>
+
+            <DialogFooter>
+              <Button type="submit">Guardar Registro</Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

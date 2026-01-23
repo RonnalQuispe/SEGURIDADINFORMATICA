@@ -39,7 +39,7 @@ export default function DescripcionSistemaPage() {
                 </svg>
               </div>
             </div>
-            <h1 className="text-4xl font-bold text-foreground mb-4">CyberRisk Manager</h1>
+            <h1 className="text-4xl font-bold text-foreground mb-4">CyberSeg Manager</h1>
             <h2 className="text-2xl text-muted-foreground mb-4">Sistema de Gestion de Riesgos Ciberneticos</h2>
             <h3 className="text-xl text-muted-foreground mb-8">Descripcion Detallada del Sistema</h3>
             <div className="text-sm text-muted-foreground">
@@ -53,18 +53,18 @@ export default function DescripcionSistemaPage() {
             <h2 className="text-2xl font-bold border-b pb-2 mb-4">Resumen Ejecutivo</h2>
             <div className="bg-muted p-6 rounded-lg">
               <p className="text-justify leading-relaxed">
-                <strong>CyberRisk Manager</strong> es una aplicacion web profesional disenada para gestionar de manera integral los riesgos de seguridad de la informacion en organizaciones de cualquier tamano. El sistema implementa las mejores practicas internacionales basadas en los estandares <strong>ISO/IEC 27001:2022</strong> (Sistema de Gestion de Seguridad de la Informacion) e <strong>ISO/IEC 27002:2022</strong> (Controles de Seguridad de la Informacion), proporcionando un marco estructurado para identificar, evaluar, tratar y monitorear los riesgos ciberneticos de forma continua.
+                <strong>CyberSeg Manager</strong> es una aplicacion web profesional disenada para gestionar de manera integral los riesgos de seguridad de la informacion en organizaciones de cualquier tamano. El sistema implementa las mejores practicas internacionales basadas en los estandares <strong>ISO/IEC 27001:2022</strong> (Sistema de Gestion de Seguridad de la Informacion) e <strong>ISO/IEC 27002:2022</strong> (Controles de Seguridad de la Informacion), proporcionando un marco estructurado para identificar, evaluar, tratar y monitorear los riesgos ciberneticos de forma continua.
               </p>
             </div>
           </section>
 
-          {/* ¿Qué es CyberRisk Manager? */}
+          {/* ¿Qué es CyberSeg Manager? */}
           <section className="mb-12 print:page-break-before">
-            <h2 className="text-2xl font-bold border-b pb-2 mb-4">1. Que es CyberRisk Manager</h2>
+            <h2 className="text-2xl font-bold border-b pb-2 mb-4">1. Que es CyberSeg Manager</h2>
             
             <h3 className="text-xl font-semibold mt-6 mb-3">1.1 Definicion</h3>
             <p className="text-justify leading-relaxed">
-              CyberRisk Manager es una <strong>plataforma web de gestion de riesgos ciberneticos</strong> que permite a las organizaciones:
+              CyberSeg   Manager es una <strong>plataforma web de gestion de riesgos ciberneticos</strong> que permite a las organizaciones:
             </p>
             <ul className="list-disc pl-6 space-y-2 mt-4">
               <li>Mantener un inventario actualizado de activos de informacion criticos</li>

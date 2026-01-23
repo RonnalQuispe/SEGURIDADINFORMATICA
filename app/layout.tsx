@@ -8,7 +8,7 @@ const _inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const _geistMono = Geist_Mono({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: 'CyberRisk Manager - Sistema de Gestion de Riesgos',
+  title: 'CyberSeg Manager - Sistema de Gestion de Riesgos',
   description: 'Sistema profesional de gestion de riesgos ciberneticos con ISO 27002:2022',
   generator: 'v0.app',
   icons: {

@@ -115,7 +115,7 @@ export function AppSidebar() {
             <Shield className="h-6 w-6 text-sidebar-primary-foreground" />
           </div>
           <div>
-            <h1 className="text-lg font-semibold text-sidebar-foreground">CyberRisk</h1>
+            <h1 className="text-lg font-semibold text-sidebar-foreground">CyberSeg</h1>
             <p className="text-xs text-sidebar-foreground/60">Gestion de Riesgos</p>
           </div>
         </div>
